@@ -12,7 +12,8 @@ but multiple consumers (clients) of the event can reliably
 If multiple threads are waiting on a standard event object,
 a [SetEvent](https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-setevent)
 will either:
-a) release exactly one (when the event is auto-reset) waiting thread,
+
+a) release exactly one (when the event is auto-reset) waiting thread, or  
 b) any number waiting threads any number of times (when the event is manual-reset) until 
 [ResetEvent](https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-resetevent) is called.
 
