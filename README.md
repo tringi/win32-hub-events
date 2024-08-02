@@ -6,6 +6,7 @@
 The Hub Event is similar to the standard [Event Object](https://learn.microsoft.com/en-us/windows/win32/sync/event-objects),
 but multiple consumers (clients) of the event can reliably
 [wait](https://learn.microsoft.com/en-us/windows/win32/sync/wait-functions) on it.
+Use it, if you need to reliably release all waiting threads, each exactly once.
 
 ## The problem being solved here
 
@@ -14,7 +15,7 @@ a [SetEvent](https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-syn
 will either:
 
 a) release exactly one (when the event is auto-reset) waiting thread, or  
-b) any number waiting threads any number of times (when the event is manual-reset) until 
+b) some number waiting threads some number of times (when the event is manual-reset) until 
 [ResetEvent](https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-resetevent) is called.
 
 The [PulseEvent](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-pulseevent) attempts
