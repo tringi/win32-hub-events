@@ -43,7 +43,7 @@ Such actions will not affect the producer or other consumers.
 
 **Consumer:**
 
-* [ConnectHubEvent(A/W)]()
+* [ConnectHubEvent(A/W)](win32-hub-events.h#L76) - connects to a Hub Event to receive set/reset state
 
 The API returns regular [Event Object](https://learn.microsoft.com/en-us/windows/win32/sync/event-objects) handle
 which can be used interchangeably, as if returned by CreateEvent or OpenEvent.
