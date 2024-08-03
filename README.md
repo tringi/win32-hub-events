@@ -26,7 +26,7 @@ to release all waiting threads exactly once, but is very unreliable in both natu
 When producer (server) uses [SetHubEvent]() to signal an auto-reset event,
 all waiting threads are released exactly once.
 
-That's acomplished by every [OpenHubEvent]() producing distinct
+That's acomplished by every [ConnectHubEvent](win32-hub-events.cpp#L137) producing distinct
 standard [Event Object](https://learn.microsoft.com/en-us/windows/win32/sync/event-objects),
 that the application can also Set/Reset/Pulse on it's own.
 Such actions will not affect the producer or other consumers.
@@ -35,11 +35,11 @@ Such actions will not affect the producer or other consumers.
 
 **Producer:**
 
-* [CreateHubEvent(A/W)]()
-* [DestroyHubEvent]()
-* [SetHubEvent]()
-* [ResetHubEvent]()
-* [GetHubEventInfo]()
+* [CreateHubEvent(A/W)](win32-hub-events.cpp#L41) - creates server side of Hub Event, used by following APIs:
+* [DestroyHubEvent](win32-hub-events.cpp#L61) - stops the server and frees all resources
+* [SetHubEvent](win32-hub-events.cpp#L88) - sets events for all consumers (clients)
+* [ResetHubEvent](win32-hub-events.cpp#L91) - resets events for all consumers (clients)
+* [GetHubEventInfo](win32-hub-events.h#L64) - retrieves various information and statistics about the Hub Event
 
 **Consumer:**
 
