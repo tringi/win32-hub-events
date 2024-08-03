@@ -6,7 +6,7 @@
 The Hub Event is similar to the standard [Event Object](https://learn.microsoft.com/en-us/windows/win32/sync/event-objects),
 but multiple consumers (clients) of the event can reliably
 [wait](https://learn.microsoft.com/en-us/windows/win32/sync/wait-functions) on it.
-Use it, if you need to reliably release all waiting threads, each exactly once.
+Use it, if you need to reliably signal/release all waiting threads, each exactly once.
 
 ## The problem being solved here
 
@@ -53,6 +53,11 @@ which can be used interchangeably, as if returned by CreateEvent or OpenEvent, b
 * [ResetEvent](https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-resetevent)
 * [PulseEvent](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-pulseevent)
 * [CloseHandle](https://learn.microsoft.com/en-us/windows/win32/api/handleapi/nf-handleapi-closehandle)
+
+## Dependencies
+
+* HubEvents.dll has no dependencies outside Windows Vista+ native DLLs
+* Example projects (prebuilt EXEs) require Visual C++ runtime
 
 ## Remarks
 
