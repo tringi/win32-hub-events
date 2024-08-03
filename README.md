@@ -56,9 +56,11 @@ which can be used interchangeably, as if returned by CreateEvent or OpenEvent.
 
 ## Remarks
 
-* aaa
-
-## Links
-
-* aaa
+* Server side (producer) is implemented as [Named Pipe](https://learn.microsoft.com/en-us/windows/win32/ipc/named-pipes)
+  server that hands out separate [Event Object](https://learn.microsoft.com/en-us/windows/win32/sync/event-objects)
+  to each client (consumer).
+* The purpose of this example is to ilustrate a feature that should be provided by the OS as a kernel object alongside 
+  [events](https://learn.microsoft.com/en-us/windows/win32/sync/event-objects),
+  [mutexes](https://learn.microsoft.com/en-us/windows/win32/sync/mutex-objects),
+  [semaphores](https://learn.microsoft.com/en-us/windows/win32/sync/semaphore-objects), etc.
 

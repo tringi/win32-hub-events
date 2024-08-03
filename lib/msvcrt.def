@@ -1,0 +1,6 @@
+EXPORTS 
+	_snwprintf
+	_snprintf
+	memset
+	memcpy
+	memmove

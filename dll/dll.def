@@ -1,0 +1,13 @@
+LIBRARY "HubEvents.dll"
+VERSION 0.1
+EXPORTS
+	CreateHubEventA
+	CreateHubEventW
+	DestroyHubEvent
+	SetHubEvent
+	ResetHubEvent
+	PulseHubEvent
+	GetHubEventInfo
+
+	ConnectHubEventA
+	ConnectHubEventW
