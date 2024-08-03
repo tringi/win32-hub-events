@@ -23,7 +23,7 @@ to release all waiting threads exactly once, but is very unreliable in both natu
 
 ## Solution using Hub Events
 
-When producer (server) uses [SetHubEvent]() to signal an auto-reset event,
+When producer (server) uses [SetHubEvent](win32-hub-events.cpp#L88) to signal an auto-reset event,
 all waiting threads are released exactly once.
 
 That's acomplished by every [ConnectHubEvent](win32-hub-events.cpp#L137) producing distinct
@@ -45,8 +45,8 @@ Such actions will not affect the producer or other consumers.
 
 * [ConnectHubEvent(A/W)](win32-hub-events.h#L76) - connects to a Hub Event to receive set/reset state
 
-The API returns regular [Event Object](https://learn.microsoft.com/en-us/windows/win32/sync/event-objects) handle
-which can be used interchangeably, as if returned by CreateEvent or OpenEvent.
+The ConnectHubEvent returns regular [Event Object](https://learn.microsoft.com/en-us/windows/win32/sync/event-objects) handle
+which can be used interchangeably, as if returned by CreateEvent or OpenEvent, by:
 
 * [All standard wait functions](https://learn.microsoft.com/en-us/windows/win32/sync/wait-functions).
 * [SetEvent](https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-setevent)
