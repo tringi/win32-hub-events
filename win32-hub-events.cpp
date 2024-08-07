@@ -295,7 +295,6 @@ namespace {
                                     }
                                 }
 
-                                // delay next pruning so that we don't delete the event before consumer opens it
                                 context->dwLastPrune = GetTickCount ();
                                 context->nConnectCounter++;
 
