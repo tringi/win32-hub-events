@@ -137,6 +137,20 @@ BOOL WINAPI GetHubEventInfo (_In_ HHEVENT context,
 // ConnectHubEvent (A/W)
 //  - the server side is implemented as named pipe server
 
+namespace {
+    HANDLE ResolveCallResult (BOOL retval, DWORD dwResponse, DWORD nRead) {
+        if (retval || (GetLastError () == ERROR_MORE_DATA)) {
+            switch (nRead) {
+                default:
+                    return (HANDLE) (LONG) dwResponse;
+                case sizeof (WORD):
+                    SetLastError (dwResponse);
+            }
+        }
+        return NULL;
+    }
+}
+
 HANDLE WINAPI ConnectHubEventW (DWORD dwDesiredAccess, BOOL bInheritHandle, _In_ LPCWSTR lpName) {
     WCHAR szPipeName [MAX_PATH + 10];
     _snwprintf (szPipeName, MAX_PATH + 10, L"\\\\.\\pipe\\%s", lpName);
@@ -146,11 +160,9 @@ HANDLE WINAPI ConnectHubEventW (DWORD dwDesiredAccess, BOOL bInheritHandle, _In_
     }
 
     DWORD nRead = 0;
-    HANDLE hEvent = NULL;
-    if (CallNamedPipeW (szPipeName, &dwDesiredAccess, sizeof dwDesiredAccess, &hEvent, sizeof hEvent, &nRead, dwPipeTimeout) || (GetLastError () == ERROR_MORE_DATA)) {
-        return hEvent;
-    } else
-        return NULL;
+    DWORD dwResponse = 0;
+    BOOL retval = CallNamedPipeW (szPipeName, &dwDesiredAccess, sizeof dwDesiredAccess, &dwResponse, sizeof dwResponse, &nRead, dwPipeTimeout);
+    return ResolveCallResult (retval, dwResponse, nRead);
 }
 
 HANDLE WINAPI ConnectHubEventA (DWORD dwDesiredAccess, BOOL bInheritHandle, _In_ LPCSTR lpName) {
@@ -162,11 +174,9 @@ HANDLE WINAPI ConnectHubEventA (DWORD dwDesiredAccess, BOOL bInheritHandle, _In_
     }
 
     DWORD nRead = 0;
-    HANDLE hEvent = NULL;
-    if (CallNamedPipeA (szPipeName, &dwDesiredAccess, sizeof dwDesiredAccess, &hEvent, sizeof hEvent, &nRead, dwPipeTimeout) || (GetLastError () == ERROR_MORE_DATA)) {
-        return hEvent;
-    } else
-        return NULL;
+    DWORD dwResponse = 0;
+    BOOL retval = CallNamedPipeA (szPipeName, &dwDesiredAccess, sizeof dwDesiredAccess, &dwResponse, sizeof dwResponse, &nRead, dwPipeTimeout);
+    return ResolveCallResult (retval, dwResponse, nRead);
 }
 
 
@@ -243,71 +253,83 @@ namespace {
         return false;
     }
 
+    bool InsertEvent (HubEvent * context, HANDLE hNewEvent) {
+        bool success = false;
+        AcquireSRWLockExclusive (&context->lockEvents);
+
+        HANDLE heap = GetProcessHeap ();
+        SIZE_T size = HeapSize (heap, 0, context->hEvents) / sizeof (HANDLE);
+
+        PruneConsumerHandles (context, heap, size);
+
+        if (context->bEmptySlot) {
+            if (FindAndSetEmptySlot (context->hEvents, size, hNewEvent)) {
+                success = true;
+            } else {
+                context->bEmptySlot = FALSE;
+            }
+        }
+
+        if (!context->bEmptySlot) {
+            HANDLE * newEvents = (HANDLE *) HeapReAlloc (heap, 0, context->hEvents, (size + 1) * sizeof (HANDLE));
+            if (newEvents) {
+                context->hEvents = newEvents;
+                context->hEvents [size] = hNewEvent;
+                success = true;
+            }
+        }
+
+        ReleaseSRWLockExclusive (&context->lockEvents);
+        return success;
+    }
+
     void CALLBACK HeapWaitCallback (PTP_CALLBACK_INSTANCE Instance, PVOID Context, PTP_WAIT Wait, TP_WAIT_RESULT WaitResult) {
         HubEvent * context = (HubEvent *) Context;
 
         DWORD n = 0;
         DWORD dwDesiredAccess = 0;
-        bool success = false;
+        bool succeeded = false;
 
         if (ReadFile (context->hPipe, &dwDesiredAccess, sizeof dwDesiredAccess, &n, NULL) && (n == sizeof (DWORD))) {
 
-            HANDLE hNewEvent = CreateEventW (NULL, context->bManualReset, context->bInitialState, NULL);
-            if (hNewEvent) {
+            DWORD dwClientProcessId = 0;
+            if (GetNamedPipeClientProcessId (context->hPipe, &dwClientProcessId)) {
 
-                DWORD dwClientProcessId = 0;
-                if (GetNamedPipeClientProcessId (context->hPipe, &dwClientProcessId)) {
+                HANDLE hClientProcess = OpenProcess (PROCESS_DUP_HANDLE, FALSE, dwClientProcessId);
+                if (hClientProcess) {
 
-                    HANDLE hClientProcess = OpenProcess (PROCESS_DUP_HANDLE, FALSE, dwClientProcessId);
-                    if (hClientProcess) {
+                    HANDLE hNewEvent = CreateEventW (NULL, context->bManualReset, context->bInitialState, NULL);
+                    if (hNewEvent) {
 
-                        BOOL bInheritHandle = !!(dwDesiredAccess & maskInheritHandle);
-                        dwDesiredAccess &= ~maskInheritHandle;
+                        if (InsertEvent (context, hNewEvent)) {
 
-                        HANDLE hClientEvent = NULL;
-                        if (DuplicateHandle (GetCurrentProcess (), hNewEvent,
-                                             hClientProcess, &hClientEvent,
-                                             dwDesiredAccess, bInheritHandle, 0)) {
+                            BOOL bInheritHandle = !!(dwDesiredAccess & maskInheritHandle);
+                            dwDesiredAccess &= ~maskInheritHandle;
 
-                            if (WriteFile (context->hPipe, &hClientEvent, sizeof hClientEvent, &n, NULL)) {
+                            HANDLE hClientEvent = NULL;
+                            if (DuplicateHandle (GetCurrentProcess (), hNewEvent,
+                                                 hClientProcess, &hClientEvent,
+                                                 dwDesiredAccess, bInheritHandle, 0)) {
 
-                                AcquireSRWLockExclusive (&context->lockEvents);
+                                // handles are documented to be 32-bit for compatibility with WOW64
+                                //  - we can use that to ignore bitness mismatch between consumer and producer
 
-                                HANDLE heap = GetProcessHeap ();
-                                SIZE_T size = HeapSize (heap, 0, context->hEvents) / sizeof (HANDLE);
-
-                                PruneConsumerHandles (context, heap, size);
-
-                                if (context->bEmptySlot) {
-                                    if (FindAndSetEmptySlot (context->hEvents, size, hNewEvent)) {
-                                        success = true;
-                                    } else {
-                                        context->bEmptySlot = FALSE;
-                                    }
+                                if (WriteFile (context->hPipe, &hClientEvent, sizeof (DWORD), &n, NULL)) {
+                                    context->nConnectCounter++;
+                                    succeeded = true;
                                 }
-
-                                if (!context->bEmptySlot) {
-                                    HANDLE * newEvents = (HANDLE *) HeapReAlloc (heap, 0, context->hEvents, (size + 1) * sizeof (HANDLE));
-                                    if (newEvents) {
-                                        context->hEvents = newEvents;
-                                        context->hEvents [size] = hNewEvent;
-                                        success = true;
-                                    }
-                                }
-
-                                context->dwLastPrune = GetTickCount ();
-                                context->nConnectCounter++;
-
-                                ReleaseSRWLockExclusive (&context->lockEvents);
                             }
+                        } else {
+                            CloseHandle (hNewEvent);
                         }
-                        CloseHandle (hClientProcess);
                     }
+                    CloseHandle (hClientProcess);
                 }
+            }
 
-                if (!success) {
-                    CloseHandle (hNewEvent);
-                }
+            if (!succeeded) {
+                WORD error = (WORD) GetLastError ();
+                WriteFile (context->hPipe, &error, sizeof error, &n, NULL);
             }
         }
         
